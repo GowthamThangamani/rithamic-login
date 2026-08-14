@@ -1,13 +1,15 @@
 {
   "name": "rithamic-login",
-  "version": "1.0.0",
-  "description": "Centralized Identity & Authentication Hub for the Rithamic Ecosystem",
-  "main": "src/index.html",
+  "version": "2.0.0",
+  "description": "Centralized Identity & Authentication Hub for the Rithamic Ecosystem (TypeScript)",
+  "type": "module",
   "scripts": {
-    "dev": "npx serve src -l 5174",
-    "start": "npx serve src -l 5174"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
-  "keywords": ["rithamic", "auth", "sso", "identity"],
-  "author": "Rithamic Studio",
-  "license": "ISC"
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
 }
