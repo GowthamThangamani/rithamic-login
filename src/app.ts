@@ -218,7 +218,7 @@ async function handleRequestOtp(email: string) {
     otpStep2View.classList.remove('hidden');
     clearOtpInputs();
     startCooldownTimer(data.cooldownSeconds || 60);
-    showAlert(`Verification code sent to ${email}`, 'success');
+    if (data.devOtp) { showAlert(`Verification code: ${data.devOtp} (Local Dev Mode)`, "success"); } else { showAlert(`Verification code sent to ${email}`, "success"); }
   } catch (err: any) {
     showAlert(err.message || 'Failed to send OTP code.', 'error');
   } finally {
