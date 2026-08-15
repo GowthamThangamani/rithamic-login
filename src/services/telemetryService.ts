@@ -10,7 +10,7 @@ export const trackEvent = (eventType: string, eventName: string, metadata: Recor
   const userJson = localStorage.getItem(CONFIG.USER_STORAGE_KEY);
   const user = userJson ? JSON.parse(userJson) : null;
 
-  fetch(`${CONFIG.API_BASE_URL}/api/metrics/${CONFIG.DEFAULT_PROJECT_KEY}/events`, {
+  fetch(`${CONFIG.API_BASE_URL}/api/v1/metrics/${CONFIG.DEFAULT_PROJECT_KEY}/events`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
