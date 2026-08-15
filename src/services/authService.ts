@@ -153,16 +153,16 @@ export const fetchWorkspaces = async (token: string): Promise<WorkspaceApp[]> =>
   return await handleResponse<WorkspaceApp[]>(res);
 };
 
-export const generateSsoTicket = async (token: string, targetProject: string): Promise<SsoTicketResponseDto> => {
+export const generateSsoTicket = async (token: string, targetProject: string, returnUrl?: string | null): Promise<SsoTicketResponseDto> => {
   const res = await fetch(`${CONFIG.API_BASE_URL}/api/v1/auth/sso/generate-ticket`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     },
-    body: JSON.stringify({ targetProject })
+    body: JSON.stringify({ targetProject, returnUrl: returnUrl || null })
   });
   const data = await handleResponse<SsoTicketResponseDto>(res);
-  trackEvent('sso', 'ticket_generated', { targetProject });
+  trackEvent('sso', 'ticket_generated', { targetProject, returnUrl });
   return data;
 };
