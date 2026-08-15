@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rithamic Central Login</title>
+  <title>Rithamic Central Identity & SSO Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
-  <script type="module" crossorigin src="/assets/index-BUz2L9FT.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CR_cn2EC.css">
+  <script type="module" crossorigin src="/assets/index-BIxb0mYq.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Cxb1mgf-.css">
 </head>
 <body>
 
-  <!-- Ambient Glow Effects -->
+  <!-- Ambient Background Dynamic Glow Effects -->
   <div class="ambient-glow-1"></div>
   <div class="ambient-glow-2"></div>
 
@@ -22,7 +25,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        <span>Rithamic Single Sign-On</span>
+        <span id="brandSuiteBadge">Rithamic Single Sign-On</span>
       </div>
       <h1 class="brand-title" id="brandTitle">Sign in to Rithamic</h1>
       <p class="brand-subtitle" id="brandSubtitle">Secure centralized access to your workspaces</p>
@@ -36,10 +39,16 @@
 
       <!-- Navigation Tabs -->
       <div class="auth-tabs" id="authTabs">
-        <button type="button" class="tab-btn active" id="tabOtp" data-tab="otp">
+        <button type="button" class="tab-btn active" id="tabPassword" data-tab="password">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          Password
+        </button>
+        <button type="button" class="tab-btn" id="tabOtp" data-tab="otp">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 18h.01M8 21h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z"></path>
           </svg>
           OTP Code
         </button>
@@ -52,15 +61,22 @@
         </button>
       </div>
 
-      <!-- Option 1: OTP Step 1 (Enter Email) -->
-      <div id="otpStep1View">
-        <form id="otpRequestForm">
+      <!-- Tab 1: Password Authentication View -->
+      <div id="passwordView">
+        <form id="passwordLoginForm">
           <div class="form-group">
-            <label class="form-label" for="otpEmailInput">Work or Personal Email</label>
-            <input type="email" id="otpEmailInput" class="form-input" placeholder="name@domain.com" required autofocus autocomplete="email">
+            <label class="form-label" for="passwordEmailInput">Email Address</label>
+            <input type="email" id="passwordEmailInput" class="form-input" placeholder="name@domain.com" required autofocus autocomplete="email">
           </div>
-          <button type="submit" class="btn btn-primary" id="btnSendOtp">
-            <span>Continue with Email</span>
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" for="passwordInput" style="margin: 0;">Password</label>
+              <a href="#" class="link-sm" id="btnTriggerForgot">Forgot password?</a>
+            </div>
+            <input type="password" id="passwordInput" class="form-input" placeholder="••••••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnSubmitPassword">
+            <span>Sign in with Password</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>
@@ -72,7 +88,7 @@
 
         <!-- Google OAuth Button -->
         <button type="button" class="btn btn-google" id="btnGoogleLogin">
-          <svg viewBox="0 0 24 24">
+          <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
             <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
             <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
@@ -82,11 +98,28 @@
         </button>
       </div>
 
-      <!-- Option 1: OTP Step 2 (Enter 6 Digits) -->
+      <!-- Tab 2: OTP Step 1 (Enter Email) -->
+      <div id="otpStep1View" class="hidden">
+        <form id="otpRequestForm">
+          <div class="form-group">
+            <label class="form-label" for="otpEmailInput">Work or Personal Email</label>
+            <input type="email" id="otpEmailInput" class="form-input" placeholder="name@domain.com" required autocomplete="email">
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnSendOtp">
+            <span>Send OTP Passcode</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Tab 2: OTP Step 2 (Enter 6 Digits) -->
       <div id="otpStep2View" class="hidden">
-        <p style="font-size: 14px; color: #475569; margin-bottom: 8px;">
-          We sent a 6-digit verification code to:
-          <strong id="sentEmailDisplay" style="color: #0f172a;"></strong>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">
+          We sent a 6-digit verification passcode to:
+          <strong id="sentEmailDisplay" style="color: var(--text-primary);"></strong>
         </p>
 
         <form id="otpVerifyForm">
@@ -114,7 +147,7 @@
         </button>
       </div>
 
-      <!-- Option 2: Magic Link View -->
+      <!-- Tab 3: Magic Link View -->
       <div id="magicLinkView" class="hidden">
         <form id="magicLinkForm">
           <div class="form-group">
@@ -127,36 +160,109 @@
         </form>
       </div>
 
+      <!-- Forgot Password View -->
+      <div id="forgotPasswordView" class="hidden">
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Reset Password</h3>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
+          Enter your account email and we'll dispatch a secure recovery link.
+        </p>
+        <form id="forgotPasswordForm">
+          <div class="form-group">
+            <label class="form-label" for="forgotEmailInput">Registered Email</label>
+            <input type="email" id="forgotEmailInput" class="form-input" placeholder="name@domain.com" required autocomplete="email">
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnSendForgot">
+            <span>Send Reset Instructions</span>
+          </button>
+        </form>
+        <div style="text-align: center; margin-top: 16px;">
+          <a href="#" class="link-sm" id="btnBackToLogin">Back to Sign In</a>
+        </div>
+      </div>
+
+      <!-- Reset Password View (Consumes URL token) -->
+      <div id="resetPasswordView" class="hidden">
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Set New Password</h3>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
+          Choose a strong password with at least 8 characters.
+        </p>
+        <form id="resetPasswordForm">
+          <div class="form-group">
+            <label class="form-label" for="resetEmailInput">Email Address</label>
+            <input type="email" id="resetEmailInput" class="form-input" required readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="newPasswordInput">New Password</label>
+            <input type="password" id="newPasswordInput" class="form-input" placeholder="••••••••••••" required minlength="8">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="confirmPasswordInput">Confirm New Password</label>
+            <input type="password" id="confirmPasswordInput" class="form-input" placeholder="••••••••••••" required minlength="8">
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnSubmitReset">
+            <span>Update Password & Sign In</span>
+          </button>
+        </form>
+      </div>
+
     </section>
 
-    <!-- Logged-in Workspace Hub View (App Switcher) -->
+    <!-- Logged-in Workspace Hub & Session Management View -->
     <section class="auth-card hidden" id="workspaceHubCard">
       <div class="hub-header">
         <div class="hub-user-info">
           <div class="hub-avatar" id="userAvatar">G</div>
           <div>
-            <h3 id="userName" style="font-size: 16px; font-weight: 700; color: #1e293b;">User Name</h3>
-            <p id="userEmail" style="font-size: 13px; color: #64748b;">email@domain.com</p>
+            <h3 id="userName" style="font-size: 16px; font-weight: 700; color: var(--text-primary);">User Name</h3>
+            <p id="userEmail" style="font-size: 13px; color: var(--text-muted);">email@domain.com</p>
           </div>
         </div>
-        <button class="btn btn-secondary" id="btnLogout" style="width: auto; padding: 6px 14px; margin: 0; font-size: 13px;">
-          Log out
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="btnOpenSessions" style="width: auto; padding: 6px 14px; margin: 0; font-size: 13px;">
+            🛡️ Devices
+          </button>
+          <button class="btn btn-secondary" id="btnLogout" style="width: auto; padding: 6px 14px; margin: 0; font-size: 13px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+            Log out
+          </button>
+        </div>
       </div>
 
-      <h2 style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Select a Workspace</h2>
-      <p style="font-size: 14px; color: #64748b; margin-bottom: 16px;">Launch your authorized products with instant single sign-on.</p>
+      <h2 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Authorized Workspaces</h2>
+      <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">Launch your products with seamless single sign-on tickets.</p>
 
-      <!-- Suites Container -->
-      <div id="suitesContainer"></div>
-
-      <!-- Standalone Apps Container -->
-      <div id="standaloneContainer"></div>
+      <!-- Apps Container -->
+      <div id="suitesContainer" class="workspace-grid"></div>
     </section>
+
+    <!-- Active Sessions / Devices Drawer Modal -->
+    <div id="sessionsModal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Active Sessions & Devices</h3>
+          <button type="button" class="btn-close" id="btnCloseSessions">&times;</button>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          View and terminate active logins across all your browsers and mobile devices.
+        </p>
+
+        <div id="sessionsList" class="sessions-list">
+          <div class="loading-spinner"></div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn btn-danger-outline" id="btnRevokeAllSessions">
+            Revoke All Other Devices
+          </button>
+          <button type="button" class="btn btn-secondary" id="btnCloseSessionsModal" style="width: auto; margin: 0;">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Footer -->
     <footer class="auth-footer">
-      <p>&copy; 2026 Rithamic Studio. Built with high-security zero-trust protocols.</p>
+      <p>&copy; 2026 Rithamic Global Core Services. Multi-tenant zero-trust security architecture.</p>
     </footer>
 
   </main>

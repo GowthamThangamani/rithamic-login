@@ -1,48 +1,51 @@
-export type UserRole = 'admin' | 'editor' | 'viewer';
+export type UserRole = 'admin' | 'super_admin' | 'editor' | 'viewer';
 
 export interface AuthUser {
   id: number;
   email: string;
+  phone: string | null;
   fullName: string;
+  avatarUrl?: string | null;
   role: UserRole;
   projectKey: string;
 }
 
-export interface AuthResponse {
-  success: boolean;
+export interface AuthResponseDto {
+  sessionId: string;
   token: string;
+  refreshToken: string;
+  expiresIn: number; // 900 seconds
   user: AuthUser;
-  returnUrl?: string;
-  error?: string;
+}
+
+export interface SessionItemDto {
+  sessionId: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  lastActiveAt: string;
+  isCurrentSession: boolean;
 }
 
 export interface WorkspaceApp {
   projectKey: string;
-  name: string;
+  projectName: string;
+  productSuite?: string | null;
+  appIconUrl?: string | null;
+  appLaunchUrl?: string | null;
   role: UserRole;
-  iconUrl?: string | null;
-  launchUrl?: string | null;
 }
 
-export interface ProductSuite {
-  suiteKey: string;
-  suiteName: string;
-  apps: WorkspaceApp[];
-}
-
-export interface WorkspacesResponse {
-  success: boolean;
-  email: string;
-  totalWorkspaces: number;
-  suites: ProductSuite[];
-  standalone: WorkspaceApp[];
-}
-
-export interface SsoTicketResponse {
-  success: boolean;
+export interface SsoTicketResponseDto {
   ticket: string;
-  targetProjectKey: string;
-  targetProjectName: string;
-  expiresInSeconds: number;
-  redirectUrl: string;
+  expiresAt: string;
+  targetUrl: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  errorCode?: string;
+  correlationId?: string;
+  errors?: Record<string, string[]>;
 }
