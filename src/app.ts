@@ -168,15 +168,24 @@ class RithamicAuthApp {
     }
   }
 
-  private onAuthenticated(auth: AuthResponseDto): void {
+  private async onAuthenticated(auth: AuthResponseDto): Promise<void> {
     localStorage.setItem(CONFIG.SESSION_STORAGE_KEY, auth.token);
     localStorage.setItem(CONFIG.REFRESH_TOKEN_KEY, auth.refreshToken);
     localStorage.setItem(CONFIG.SESSION_ID_KEY, auth.sessionId);
     localStorage.setItem(CONFIG.USER_STORAGE_KEY, JSON.stringify(auth.user));
 
     if (this.returnUrl) {
-      window.location.href = this.returnUrl;
-      return;
+      try {
+        this.alertBanner.show('Authorizing single sign-on redirect...', 'info');
+        const sso = await authService.generateSsoTicket(auth.token, this.targetProjectKey, this.returnUrl);
+        window.location.href = sso.targetUrl;
+        return;
+      } catch (err: any) {
+        console.warn('Direct SSO ticket generation fallback:', err);
+        const redirectUrl = new URL(this.returnUrl, window.location.origin);
+        window.location.href = redirectUrl.toString();
+        return;
+      }
     }
 
     this.workspaceView.render(auth.user);
