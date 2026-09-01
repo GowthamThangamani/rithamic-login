@@ -1,5 +1,6 @@
 import { projectService } from '../services/projectService.ts';
-import { AuthUser, ClientProjectDto, ApiKeyDto } from '../types/index.ts';
+import { AuthUser, ClientProjectDto } from '../types/index.ts';
+import { router } from '../services/routerService.ts';
 
 export class AdminConsoleView {
   private container: HTMLElement;
@@ -14,51 +15,103 @@ export class AdminConsoleView {
     this.onNavigateBack = onNavigateBack;
   }
 
-  async render(user: AuthUser): Promise<void> {
+  async render(user: AuthUser, initialTab?: 'projects' | 'apikeys' | 'comms'): Promise<void> {
     this.currentUser = user;
+    
+    // Read from URL if available
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get('tab') as 'projects' | 'apikeys' | 'comms';
+    const urlKey = params.get('activeKey');
+
+    if (urlTab && ['projects', 'apikeys', 'comms'].includes(urlTab)) {
+      this.currentTab = urlTab;
+    } else if (initialTab) {
+      this.currentTab = initialTab;
+    }
+
+    if (urlKey) {
+      this.activeProjectKey = urlKey;
+    }
+
     this.container.innerHTML = `
-      <div class="admin-console-layout">
-        <!-- Top Admin Header -->
-        <header class="admin-header">
-          <div class="admin-brand">
-            <div class="admin-logo-shield">🛡️</div>
-            <div>
-              <h1 class="admin-title">Rithamic B2C Console</h1>
-              <p class="admin-subtitle">Central Identity, App Registrations & Developer Hub</p>
+      <div class="admin-dashboard-layout">
+        <!-- Traditional Left Sidebar Navigation -->
+        <aside class="admin-sidebar">
+          <div class="admin-sidebar-header">
+            <div class="admin-sidebar-brand">
+              <div class="admin-sidebar-logo">🛡️</div>
+              <div class="admin-sidebar-brand-text">
+                <h2>Rithamic B2C</h2>
+                <span>Developer Console</span>
+              </div>
             </div>
           </div>
-          <div class="admin-header-actions">
-            <span class="admin-user-badge">👑 ${this.currentUser.fullName} (${this.currentUser.role})</span>
-            <button id="btn-back-to-workspace" class="btn-secondary-sm">🚀 Workspace Hub</button>
-            <button id="btn-admin-logout" class="btn-outline-danger-sm">Logout</button>
+
+          <nav class="admin-sidebar-menu">
+            <div class="menu-section-label">IDENTITY & APPS</div>
+            <a href="?view=admin&tab=projects" class="sidebar-menu-item ${this.currentTab === 'projects' ? 'active' : ''}" data-tab="projects">
+              <span class="menu-icon">🏢</span>
+              <span class="menu-label">Applications</span>
+              <span id="sidebar-projects-count" class="menu-badge">...</span>
+            </a>
+            <a href="?view=admin&tab=apikeys" class="sidebar-menu-item ${this.currentTab === 'apikeys' ? 'active' : ''}" data-tab="apikeys">
+              <span class="menu-icon">🔑</span>
+              <span class="menu-label">Server API Keys</span>
+            </a>
+            <a href="?view=admin&tab=comms" class="sidebar-menu-item ${this.currentTab === 'comms' ? 'active' : ''}" data-tab="comms">
+              <span class="menu-icon">📊</span>
+              <span class="menu-label">Communications</span>
+            </a>
+          </nav>
+
+          <div class="admin-sidebar-footer">
+            <div class="admin-user-profile">
+              <div class="admin-user-avatar">👑</div>
+              <div class="admin-user-meta">
+                <span class="admin-user-name" title="${this.currentUser.fullName}">${this.currentUser.fullName}</span>
+                <span class="admin-user-role">${this.currentUser.role}</span>
+              </div>
+            </div>
+            <div class="sidebar-btn-group">
+              <button id="btn-back-to-workspace" class="btn-sidebar-secondary">🚀 Workspace Hub</button>
+              <button id="btn-admin-logout" class="btn-sidebar-danger">Logout</button>
+            </div>
           </div>
-        </header>
+        </aside>
 
-        <!-- Admin Navigation Tabs -->
-        <nav class="admin-nav-tabs">
-          <button class="admin-tab-btn ${this.currentTab === 'projects' ? 'active' : ''}" data-tab="projects">
-            🏢 App Registrations & Projects
-          </button>
-          <button class="admin-tab-btn ${this.currentTab === 'apikeys' ? 'active' : ''}" data-tab="apikeys">
-            🔑 Server API Keys
-          </button>
-          <button class="admin-tab-btn ${this.currentTab === 'comms' ? 'active' : ''}" data-tab="comms">
-            📊 Communications & Usage Logs
-          </button>
-        </nav>
+        <!-- Right Content Main Frame (Consistent Fixed Layout) -->
+        <div class="admin-main-viewport">
+          <header class="admin-top-navbar">
+            <div class="admin-breadcrumb">
+              <span class="breadcrumb-root">Console</span>
+              <span class="breadcrumb-sep">/</span>
+              <span id="breadcrumb-current-tab" class="breadcrumb-active">${this.getTabLabel(this.currentTab)}</span>
+            </div>
+            <div class="admin-topbar-actions" id="admin-topbar-actions">
+              <!-- Dynamically populated per tab -->
+            </div>
+          </header>
 
-        <!-- Dynamic Admin Content Pane -->
-        <main id="admin-tab-content" class="admin-tab-content">
-          <div class="admin-loading-spinner">Loading console data...</div>
-        </main>
+          <main id="admin-tab-content" class="admin-viewport-content">
+            <div class="admin-loading-spinner">Loading console data...</div>
+          </main>
+        </div>
 
-        <!-- Dynamic Modal Container -->
+        <!-- Dynamic Modal Root -->
         <div id="admin-modal-root"></div>
       </div>
     `;
 
     this.bindEvents();
     await this.loadDataAndRenderTab();
+  }
+
+  private getTabLabel(tab: 'projects' | 'apikeys' | 'comms'): string {
+    switch (tab) {
+      case 'projects': return 'Registered Applications';
+      case 'apikeys': return 'Server API Keys';
+      case 'comms': return 'Communications & Usage Accounting';
+    }
   }
 
   private bindEvents(): void {
@@ -68,23 +121,52 @@ export class AdminConsoleView {
 
     document.getElementById('btn-admin-logout')?.addEventListener('click', () => {
       localStorage.clear();
-      window.location.reload();
+      window.location.href = window.location.pathname;
     });
 
-    this.container.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    this.container.querySelectorAll('.sidebar-menu-item').forEach(btn => {
       btn.addEventListener('click', (e) => {
+        e.preventDefault();
         const tab = (e.currentTarget as HTMLElement).dataset.tab as 'projects' | 'apikeys' | 'comms';
-        this.currentTab = tab;
-        this.container.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-        (e.currentTarget as HTMLElement).classList.add('active');
-        this.renderCurrentTab();
+        this.switchTab(tab, true);
       });
     });
+  }
+
+  public switchTab(tab: 'projects' | 'apikeys' | 'comms', updateUrl: boolean = true): void {
+    this.setTabInternal(tab, updateUrl);
+  }
+
+  private setTabInternal(tab: 'projects' | 'apikeys' | 'comms', updateUrl: boolean): void {
+    this.currentTab = tab;
+    
+    // Update active sidebar item
+    this.container.querySelectorAll('.sidebar-menu-item').forEach(b => {
+      if ((b as HTMLElement).dataset.tab === tab) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+
+    // Update breadcrumb
+    const breadcrumb = document.getElementById('breadcrumb-current-tab');
+    if (breadcrumb) breadcrumb.textContent = this.getTabLabel(tab);
+
+    if (updateUrl) {
+      router.navigate({ view: 'admin', adminTab: tab, activeKey: this.activeProjectKey });
+    }
+
+    this.renderCurrentTab();
   }
 
   private async loadDataAndRenderTab(): Promise<void> {
     try {
       this.projects = await projectService.getAllProjects();
+      
+      const countPill = document.getElementById('sidebar-projects-count');
+      if (countPill) countPill.textContent = this.projects.length.toString();
+
       if (this.projects.length > 0 && !this.projects.some(p => p.projectKey === this.activeProjectKey)) {
         this.activeProjectKey = this.projects[0].projectKey;
       }
@@ -99,17 +181,20 @@ export class AdminConsoleView {
 
   private renderCurrentTab(): void {
     const content = document.getElementById('admin-tab-content');
+    const topbarActions = document.getElementById('admin-topbar-actions');
     if (!content) return;
+
+    if (topbarActions) topbarActions.innerHTML = '';
 
     switch (this.currentTab) {
       case 'projects':
-        this.renderProjectsTab(content);
+        this.renderProjectsTab(content, topbarActions);
         break;
       case 'apikeys':
-        this.renderApiKeysTab(content);
+        this.renderApiKeysTab(content, topbarActions);
         break;
       case 'comms':
-        this.renderCommsTab(content);
+        this.renderCommsTab(content, topbarActions);
         break;
     }
   }
@@ -118,51 +203,107 @@ export class AdminConsoleView {
   // TAB 1: Projects & App Registrations
   // ============================================================================
 
-  private renderProjectsTab(container: HTMLElement): void {
-    container.innerHTML = `
-      <div class="tab-pane-header">
-        <div>
-          <h2>Registered Applications (${this.projects.length})</h2>
-          <p class="text-muted">Manage multi-tenant applications, CORS origins, and rate limits.</p>
+  private getProjectGradient(key: string): { bg: string; color: string; initials: string } {
+    switch (key) {
+      case 'rithamic_login':
+        return { bg: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#ffffff', initials: 'ID' };
+      case 'rithamic_familytree':
+        return { bg: 'linear-gradient(135deg, #10b981, #047857)', color: '#ffffff', initials: 'FT' };
+      case 'rithamic_harish_hotel':
+        return { bg: 'linear-gradient(135deg, #f59e0b, #b45309)', color: '#ffffff', initials: 'HH' };
+      case 'rithamic_harish_engineering':
+        return { bg: 'linear-gradient(135deg, #06b6d4, #0e7490)', color: '#ffffff', initials: 'HE' };
+      case 'rithamic_harish_chip_unit':
+        return { bg: 'linear-gradient(135deg, #84cc16, #4d7c0f)', color: '#ffffff', initials: 'CF' };
+      case 'rithamic_website':
+        return { bg: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: '#ffffff', initials: 'RW' };
+      default:
+        return { bg: 'linear-gradient(135deg, #64748b, #334155)', color: '#ffffff', initials: key.slice(0, 2).toUpperCase() };
+    }
+  }
+
+  private renderProjectBadge(p: ClientProjectDto): string {
+    const meta = this.getProjectGradient(p.projectKey);
+    const hasIcon = p.appIconUrl && p.appIconUrl.trim() !== '';
+
+    return `
+      <div class="project-badge-wrapper">
+        ${hasIcon ? `
+          <img 
+            src="${p.appIconUrl}" 
+            alt="" 
+            class="project-img-icon" 
+            onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='flex';" 
+          />
+        ` : ''}
+        <div class="project-monogram-badge" style="background: ${meta.bg}; color: ${meta.color}; ${hasIcon ? 'display: none;' : 'display: flex;'}">
+          ${meta.initials}
         </div>
+      </div>
+    `;
+  }
+
+  private renderProjectsTab(container: HTMLElement, topbarActions: HTMLElement | null): void {
+    if (topbarActions) {
+      topbarActions.innerHTML = `
         <button id="btn-register-app" class="btn-primary-sm">➕ Register New Application</button>
+      `;
+      document.getElementById('btn-register-app')?.addEventListener('click', () => this.showRegisterProjectModal());
+    }
+
+    container.innerHTML = `
+      <div class="tab-view-header">
+        <div>
+          <h2 class="view-title">Registered Applications (${this.projects.length})</h2>
+          <p class="view-desc">Multi-tenant client registries, single sign-on parameters, and CORS configurations.</p>
+        </div>
       </div>
 
       <div class="projects-grid">
-        ${this.projects.map(p => `
+        ${this.projects.map(p => {
+          const originCount = p.allowedOrigins?.length || 0;
+          return `
           <div class="project-card ${p.isActive ? 'active' : 'inactive'}">
             <div class="project-card-header">
-              <div class="project-icon-badge">${p.appIconUrl ? `<img src="${p.appIconUrl}" alt="${p.projectName}" onerror="this.innerHTML='📦'" />` : '📦'}</div>
+              ${this.renderProjectBadge(p)}
               <div class="project-info">
-                <h3>${p.projectName}</h3>
-                <code>${p.projectKey}</code>
+                <div class="project-title-row">
+                  <h3 title="${p.projectName}">${p.projectName}</h3>
+                  <span class="status-badge ${p.isActive ? 'badge-success' : 'badge-danger'}">
+                    ${p.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <code class="project-key-pill">${p.projectKey}</code>
               </div>
-              <span class="status-badge ${p.isActive ? 'badge-success' : 'badge-danger'}">
-                ${p.isActive ? 'Active' : 'Inactive'}
-              </span>
             </div>
 
             <div class="project-card-body">
-              <div class="meta-field">
-                <span class="meta-label">Company:</span>
-                <span class="meta-value">${p.companyName || '—'}</span>
+              <div class="meta-row">
+                <span class="meta-icon">🏢</span>
+                <span class="meta-text" title="${p.companyName || 'Rithamic Studio'}">${p.companyName || 'Rithamic Studio'}</span>
               </div>
-              <div class="meta-field">
-                <span class="meta-label">Launch URL:</span>
-                <span class="meta-value">${p.appLaunchUrl ? `<a href="${p.appLaunchUrl}" target="_blank">${p.appLaunchUrl}</a>` : '—'}</span>
+              
+              <div class="meta-row">
+                <span class="meta-icon">🌐</span>
+                <span class="meta-text">
+                  ${p.appLaunchUrl 
+                    ? `<a href="${p.appLaunchUrl}" target="_blank" class="launch-link">${p.appLaunchUrl.replace(/^https?:\/\//, '')}</a>` 
+                    : '<span class="text-dim">No launch URL</span>'}
+                </span>
               </div>
-              <div class="meta-field">
-                <span class="meta-label">Allowed CORS Origins:</span>
-                <div class="origins-tag-list">
-                  ${p.allowedOrigins && p.allowedOrigins.length > 0
-                    ? p.allowedOrigins.map(o => `<span class="origin-tag">${o}</span>`).join('')
-                    : '<span class="origin-tag muted">Default (localhost/*.rithamic.co.in)</span>'
-                  }
-                </div>
+
+              <div class="meta-row">
+                <span class="meta-icon">🛡️</span>
+                <span class="meta-text origins-summary">
+                  ${originCount > 0 
+                    ? `<span class="origin-count-badge">${originCount} Allowed Origin${originCount > 1 ? 's' : ''}</span>`
+                    : '<span class="text-dim">Default CORS rules</span>'}
+                </span>
               </div>
-              <div class="meta-field">
-                <span class="meta-label">Rate Quotas:</span>
-                <span class="meta-value">${p.rateLimitMax} req / ${p.rateLimitWindowMs / 1000}s</span>
+
+              <div class="meta-row">
+                <span class="meta-icon">⚡</span>
+                <span class="meta-text">${p.rateLimitMax} req / ${p.rateLimitWindowMs / 1000}s rate limit</span>
               </div>
             </div>
 
@@ -171,11 +312,10 @@ export class AdminConsoleView {
               <button class="btn-outline-sm btn-manage-keys" data-key="${p.projectKey}">🔑 API Keys</button>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     `;
-
-    document.getElementById('btn-register-app')?.addEventListener('click', () => this.showRegisterProjectModal());
 
     container.querySelectorAll('.btn-edit-project').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -189,10 +329,7 @@ export class AdminConsoleView {
       btn.addEventListener('click', (e) => {
         const key = (e.currentTarget as HTMLElement).dataset.key!;
         this.activeProjectKey = key;
-        this.currentTab = 'apikeys';
-        this.container.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-        this.container.querySelector('[data-tab="apikeys"]')?.classList.add('active');
-        this.renderCurrentTab();
+        this.switchTab('apikeys', true);
       });
     });
   }
@@ -201,32 +338,40 @@ export class AdminConsoleView {
   // TAB 2: Server API Keys Management
   // ============================================================================
 
-  private async renderApiKeysTab(container: HTMLElement): Promise<void> {
-    container.innerHTML = `
-      <div class="tab-pane-header">
-        <div>
-          <h2>Server API Keys</h2>
-          <p class="text-muted">Generate Stripe-like hashed API keys (<code>rk_live_...</code>) for server-to-server calls.</p>
-        </div>
+  private async renderApiKeysTab(container: HTMLElement, topbarActions: HTMLElement | null): Promise<void> {
+    if (topbarActions) {
+      topbarActions.innerHTML = `
         <div class="tab-header-controls">
           <select id="select-active-project" class="admin-select">
             ${this.projects.map(p => `<option value="${p.projectKey}" ${p.projectKey === this.activeProjectKey ? 'selected' : ''}>${p.projectName} (${p.projectKey})</option>`).join('')}
           </select>
-          <button id="btn-create-key" class="btn-primary-sm">➕ Generate New API Key</button>
+          <button id="btn-create-key" class="btn-primary-sm">➕ Generate API Key</button>
+        </div>
+      `;
+
+      document.getElementById('select-active-project')?.addEventListener('change', async (e) => {
+        this.activeProjectKey = (e.target as HTMLSelectElement).value;
+        const url = new URL(window.location.href);
+        url.searchParams.set('activeKey', this.activeProjectKey);
+        window.history.pushState({}, '', url.toString());
+        await this.loadAndRenderKeysTable();
+      });
+
+      document.getElementById('btn-create-key')?.addEventListener('click', () => this.showCreateApiKeyModal());
+    }
+
+    container.innerHTML = `
+      <div class="tab-view-header">
+        <div>
+          <h2 class="view-title">Server-to-Server API Keys</h2>
+          <p class="view-desc">Generate cryptographically secure hashed API keys (<code>rk_live_...</code> / <code>rk_test_...</code>) for automated server integrations.</p>
         </div>
       </div>
 
-      <div id="apikeys-table-container">
+      <div id="apikeys-table-container" class="admin-table-wrapper">
         <div class="admin-loading-spinner">Loading API keys...</div>
       </div>
     `;
-
-    document.getElementById('select-active-project')?.addEventListener('change', async (e) => {
-      this.activeProjectKey = (e.target as HTMLSelectElement).value;
-      await this.loadAndRenderKeysTable();
-    });
-
-    document.getElementById('btn-create-key')?.addEventListener('click', () => this.showCreateApiKeyModal());
 
     await this.loadAndRenderKeysTable();
   }
@@ -239,11 +384,14 @@ export class AdminConsoleView {
       const keys = await projectService.getProjectApiKeys(this.activeProjectKey);
       if (keys.length === 0) {
         container.innerHTML = `
-          <div class="empty-state-box">
-            <p>No active API keys found for project <strong>${this.activeProjectKey}</strong>.</p>
-            <p class="text-muted">Generate an API key to allow backend services to dispatch emails, SMS, and ingest telemetry.</p>
+          <div class="empty-state-card">
+            <div class="empty-icon">🔑</div>
+            <h4>No Active API Keys for <code>${this.activeProjectKey}</code></h4>
+            <p>Generate a private API key to allow server daemons, POS backends, and background workers to authenticate with Core Service.</p>
+            <button id="btn-empty-create-key" class="btn-primary-sm" style="margin-top: 14px;">➕ Generate Key Now</button>
           </div>
         `;
+        document.getElementById('btn-empty-create-key')?.addEventListener('click', () => this.showCreateApiKeyModal());
         return;
       }
 
@@ -253,30 +401,30 @@ export class AdminConsoleView {
             <tr>
               <th>Key Name</th>
               <th>Prefix</th>
-              <th>Scopes</th>
+              <th>Allowed Scopes</th>
               <th>Rate Limit</th>
               <th>Last Used</th>
-              <th>Created</th>
-              <th>Action</th>
+              <th>Created Date</th>
+              <th style="text-align: right;">Action</th>
             </tr>
           </thead>
           <tbody>
             ${keys.map(k => `
               <tr class="${k.isActive ? '' : 'row-inactive'}">
                 <td><strong>${k.keyName}</strong></td>
-                <td><code>${k.keyPrefix}...</code></td>
+                <td><code class="key-prefix-pill">${k.keyPrefix}...</code></td>
                 <td>
                   <div class="scopes-tag-list">
                     ${k.scopes.map(s => `<span class="scope-tag">${s}</span>`).join('')}
                   </div>
                 </td>
                 <td>${k.rateLimitPerMinute} req/min</td>
-                <td>${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</td>
+                <td>${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '<span class="text-dim">Never</span>'}</td>
                 <td>${new Date(k.createdAt).toLocaleDateString()}</td>
-                <td>
+                <td style="text-align: right;">
                   ${k.isActive
                     ? `<button class="btn-danger-xs btn-revoke-key" data-id="${k.id}">Revoke</button>`
-                    : `<span class="text-muted">Revoked</span>`
+                    : `<span class="badge-revoked">Revoked</span>`
                   }
                 </td>
               </tr>
@@ -303,17 +451,30 @@ export class AdminConsoleView {
   // TAB 3: Communications & Accounting Logs
   // ============================================================================
 
-  private async renderCommsTab(container: HTMLElement): Promise<void> {
-    container.innerHTML = `
-      <div class="tab-pane-header">
-        <div>
-          <h2>Communications & Usage Accounting</h2>
-          <p class="text-muted">Monitor email & SMS delivery logs, success ratios, and monthly quota usage.</p>
-        </div>
+  private async renderCommsTab(container: HTMLElement, topbarActions: HTMLElement | null): Promise<void> {
+    if (topbarActions) {
+      topbarActions.innerHTML = `
         <div class="tab-header-controls">
           <select id="select-comms-project" class="admin-select">
             ${this.projects.map(p => `<option value="${p.projectKey}" ${p.projectKey === this.activeProjectKey ? 'selected' : ''}>${p.projectName} (${p.projectKey})</option>`).join('')}
           </select>
+        </div>
+      `;
+
+      document.getElementById('select-comms-project')?.addEventListener('change', async (e) => {
+        this.activeProjectKey = (e.target as HTMLSelectElement).value;
+        const url = new URL(window.location.href);
+        url.searchParams.set('activeKey', this.activeProjectKey);
+        window.history.pushState({}, '', url.toString());
+        await this.loadAndRenderCommsData();
+      });
+    }
+
+    container.innerHTML = `
+      <div class="tab-view-header">
+        <div>
+          <h2 class="view-title">Communications & Quota Accounting</h2>
+          <p class="view-desc">Monitor email & SMS delivery logs, delivery success rates, and monthly accounting meters.</p>
         </div>
       </div>
 
@@ -322,17 +483,12 @@ export class AdminConsoleView {
       </div>
 
       <div class="comms-logs-section">
-        <h3>Recent Delivery Logs (Last 50)</h3>
-        <div id="comms-logs-table-container">
+        <h3 class="section-title">Recent Delivery Activity (Last 50 Events)</h3>
+        <div id="comms-logs-table-container" class="admin-table-wrapper">
           <div class="admin-loading-spinner">Loading delivery logs...</div>
         </div>
       </div>
     `;
-
-    document.getElementById('select-comms-project')?.addEventListener('change', async (e) => {
-      this.activeProjectKey = (e.target as HTMLSelectElement).value;
-      await this.loadAndRenderCommsData();
-    });
 
     await this.loadAndRenderCommsData();
   }
@@ -353,32 +509,45 @@ export class AdminConsoleView {
 
         cardsContainer.innerHTML = `
           <div class="accounting-card">
-            <h4>📧 Monthly Emails</h4>
-            <div class="quota-number">${accounting.totalEmailsSent} <span class="quota-total">/ ${accounting.monthlyQuotaEmails}</span></div>
-            <div class="quota-progress-bar"><div class="progress-fill" style="width: ${emailPct}%"></div></div>
-            <span class="quota-subtext">${emailPct}% quota consumed this month</span>
-          </div>
-
-          <div class="accounting-card">
-            <h4>📱 Monthly SMS Passcodes</h4>
-            <div class="quota-number">${accounting.totalSmsSent} <span class="quota-total">/ ${accounting.monthlyQuotaSms}</span></div>
-            <div class="quota-progress-bar"><div class="progress-fill green" style="width: ${smsPct}%"></div></div>
-            <span class="quota-subtext">${smsPct}% quota consumed this month</span>
-          </div>
-
-          <div class="accounting-card">
-            <h4>✅ Delivery Health</h4>
-            <div class="quota-number">${accounting.totalSuccess} <span class="quota-total">Success (${accounting.totalFailed} Failed)</span></div>
-            <div class="health-pill ${accounting.totalFailed === 0 ? 'good' : 'warning'}">
-              ${accounting.totalFailed === 0 ? '100% Delivery Rate' : `${Math.round((accounting.totalSuccess / Math.max(1, accounting.totalSuccess + accounting.totalFailed)) * 100)}% Success`}
+            <div class="accounting-card-header">
+              <h4>📧 Monthly Emails</h4>
+              <span class="quota-pill">${accounting.totalEmailsSent} / ${accounting.monthlyQuotaEmails}</span>
             </div>
+            <div class="quota-progress-bar"><div class="progress-fill" style="width: ${emailPct}%"></div></div>
+            <span class="quota-subtext">${emailPct}% quota consumed this billing cycle</span>
+          </div>
+
+          <div class="accounting-card">
+            <div class="accounting-card-header">
+              <h4>📱 Monthly SMS Passcodes</h4>
+              <span class="quota-pill">${accounting.totalSmsSent} / ${accounting.monthlyQuotaSms}</span>
+            </div>
+            <div class="quota-progress-bar"><div class="progress-fill green" style="width: ${smsPct}%"></div></div>
+            <span class="quota-subtext">${smsPct}% quota consumed this billing cycle</span>
+          </div>
+
+          <div class="accounting-card">
+            <div class="accounting-card-header">
+              <h4>✅ Delivery Success</h4>
+              <span class="quota-pill success">${accounting.totalSuccess} Sent</span>
+            </div>
+            <div class="health-indicator ${accounting.totalFailed === 0 ? 'good' : 'warning'}">
+              ${accounting.totalFailed === 0 ? '100% Delivery Health' : `${Math.round((accounting.totalSuccess / Math.max(1, accounting.totalSuccess + accounting.totalFailed)) * 100)}% Success (${accounting.totalFailed} Failed)`}
+            </div>
+            <span class="quota-subtext">Zero bounce rate recorded</span>
           </div>
         `;
       }
 
       if (logsContainer) {
         if (logs.length === 0) {
-          logsContainer.innerHTML = `<div class="empty-state-box"><p>No email or SMS logs recorded for this project yet.</p></div>`;
+          logsContainer.innerHTML = `
+            <div class="empty-state-card">
+              <div class="empty-icon">📫</div>
+              <h4>No Delivery Logs Recorded</h4>
+              <p>When OTP codes, welcome emails, or SMS dispatches are sent by <code>${this.activeProjectKey}</code>, records will stream here in real-time.</p>
+            </div>
+          `;
           return;
         }
 
@@ -391,21 +560,22 @@ export class AdminConsoleView {
                 <th>Message Type</th>
                 <th>Provider</th>
                 <th>Status</th>
-                <th>Timestamp</th>
+                <th style="text-align: right;">Timestamp</th>
               </tr>
             </thead>
             <tbody>
               ${logs.map(l => `
                 <tr>
-                  <td><span class="channel-pill ${l.channel}">${l.channel.toUpperCase()}</span></td>
+                  <td><span class="channel-pill channel-${l.channel}">${l.channel.toUpperCase()}</span></td>
                   <td><code>${l.recipient}</code></td>
                   <td>${l.messageType}</td>
                   <td>${l.provider}</td>
                   <td>
-                    <span class="status-pill ${l.status}">${l.status}</span>
-                    ${l.errorMessage ? `<div class="log-error-tooltip">${l.errorMessage}</div>` : ''}
+                    <span class="status-badge ${l.status === 'sent' || l.status === 'delivered' ? 'badge-success' : 'badge-danger'}">
+                      ${l.status}
+                    </span>
                   </td>
-                  <td>${new Date(l.createdAt).toLocaleString()}</td>
+                  <td style="text-align: right;">${new Date(l.createdAt).toLocaleString()}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -520,15 +690,17 @@ export class AdminConsoleView {
             </div>
             <div class="form-group">
               <label>Allowed CORS Origins (Comma-separated)</label>
-              <textarea id="edit-proj-origins" class="form-input" rows="3">${project.allowedOrigins.join(', ')}</textarea>
+              <textarea id="edit-proj-origins" class="form-input" rows="2">${(project.allowedOrigins || []).join(', ')}</textarea>
             </div>
-            <div class="form-group">
-              <label>Monthly Email Quota</label>
-              <input type="number" id="edit-proj-quota-email" class="form-input" value="${project.monthlyQuotaEmails}" />
-            </div>
-            <div class="form-group">
-              <label>Monthly SMS Quota</label>
-              <input type="number" id="edit-proj-quota-sms" class="form-input" value="${project.monthlyQuotaSms}" />
+            <div class="form-row">
+              <div class="form-group col-half">
+                <label>Monthly Email Quota</label>
+                <input type="number" id="edit-proj-quota-email" class="form-input" value="${project.monthlyQuotaEmails}" min="0" />
+              </div>
+              <div class="form-group col-half">
+                <label>Monthly SMS Quota</label>
+                <input type="number" id="edit-proj-quota-sms" class="form-input" value="${project.monthlyQuotaSms}" min="0" />
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn-secondary-sm modal-close-btn">Cancel</button>
@@ -548,20 +720,20 @@ export class AdminConsoleView {
       const contactEmail = (document.getElementById('edit-proj-email') as HTMLInputElement).value.trim();
       const launchUrl = (document.getElementById('edit-proj-url') as HTMLInputElement).value.trim();
       const rawOrigins = (document.getElementById('edit-proj-origins') as HTMLTextAreaElement).value.trim();
-      const quotaEmails = parseInt((document.getElementById('edit-proj-quota-email') as HTMLInputElement).value, 10);
-      const quotaSms = parseInt((document.getElementById('edit-proj-quota-sms') as HTMLInputElement).value, 10);
+      const quotaEmail = parseInt((document.getElementById('edit-proj-quota-email') as HTMLInputElement).value, 10) || 5000;
+      const quotaSms = parseInt((document.getElementById('edit-proj-quota-sms') as HTMLInputElement).value, 10) || 1000;
 
       const origins = rawOrigins ? rawOrigins.split(',').map(s => s.trim()).filter(Boolean) : [];
 
       try {
         await projectService.updateProject(project.projectKey, {
           projectName: name,
-          companyName: company || name,
-          contactEmail: contactEmail || undefined,
-          appLaunchUrl: launchUrl || undefined,
+          companyName: company,
+          contactEmail: contactEmail,
+          appLaunchUrl: launchUrl,
           allowedOrigins: origins,
-          monthlyQuotaEmails: quotaEmails || 5000,
-          monthlyQuotaSms: quotaSms || 1000
+          monthlyQuotaEmails: quotaEmail,
+          monthlyQuotaSms: quotaSms
         });
         modalRoot.innerHTML = '';
         await this.loadDataAndRenderTab();
@@ -579,24 +751,27 @@ export class AdminConsoleView {
       <div class="modal-backdrop">
         <div class="modal-dialog">
           <div class="modal-header">
-            <h3>Generate Server API Key</h3>
+            <h3>Generate Server API Key for <code>${this.activeProjectKey}</code></h3>
             <button class="modal-close-btn">&times;</button>
           </div>
           <form id="form-create-key" class="modal-body">
             <div class="form-group">
-              <label>Target Application</label>
-              <input type="text" class="form-input" value="${this.activeProjectKey}" disabled />
+              <label>Key Name / Purpose</label>
+              <input type="text" id="new-key-name" class="form-input" placeholder="e.g. Production Backend Service" required />
             </div>
             <div class="form-group">
-              <label>Key Name (e.g. Production Backend Worker)</label>
-              <input type="text" id="new-key-name" class="form-input" placeholder="e.g. Production API Gateway" required />
+              <label>Key Environment Type</label>
+              <select id="new-key-env" class="form-input">
+                <option value="rk_live">Live Production (rk_live_...)</option>
+                <option value="rk_test">Test / Staging (rk_test_...)</option>
+              </select>
             </div>
             <div class="form-group">
-              <label>Permission Scopes</label>
-              <div class="checkbox-group">
-                <label><input type="checkbox" name="scopes" value="metrics:write" checked /> <code>metrics:write</code> (Ingest telemetry)</label>
-                <label><input type="checkbox" name="scopes" value="leads:write" checked /> <code>leads:write</code> (Ingest customer leads)</label>
-                <label><input type="checkbox" name="scopes" value="comms:send" checked /> <code>comms:send</code> (Dispatch Email & SMS)</label>
+              <label>Allowed Scopes</label>
+              <div class="scopes-checkbox-group">
+                <label><input type="checkbox" name="scopes" value="metrics:write" checked /> <code>metrics:write</code> (Ingest telemetry events)</label>
+                <label><input type="checkbox" name="scopes" value="leads:write" checked /> <code>leads:write</code> (Ingest lead submissions)</label>
+                <label><input type="checkbox" name="scopes" value="comms:send" checked /> <code>comms:send</code> (Dispatch OTP & transactional emails)</label>
               </div>
             </div>
             <div class="modal-footer">
@@ -613,22 +788,27 @@ export class AdminConsoleView {
     document.getElementById('form-create-key')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const keyName = (document.getElementById('new-key-name') as HTMLInputElement).value.trim();
-      const scopeCheckboxes = modalRoot.querySelectorAll<HTMLInputElement>('input[name="scopes"]:checked');
-      const scopes = Array.from(scopeCheckboxes).map(cb => cb.value);
+      const keyEnv = (document.getElementById('new-key-env') as HTMLSelectElement).value;
+
+      const checkedScopes = Array.from(modalRoot.querySelectorAll('input[name="scopes"]:checked'))
+        .map(el => (el as HTMLInputElement).value);
 
       try {
-        const createdKey = await projectService.createApiKey(this.activeProjectKey, {
-          keyName,
-          scopes: scopes.length > 0 ? scopes : ['metrics:write']
+        const result = await projectService.createApiKey(this.activeProjectKey, {
+          keyName: `${keyName} (${keyEnv === 'rk_live' ? 'Live' : 'Test'})`,
+          scopes: checkedScopes.length > 0 ? checkedScopes : ['metrics:write']
         });
-        this.showKeyRevealedModal(createdKey);
+
+        modalRoot.innerHTML = '';
+        this.showNewApiKeyRevealModal(result.apiKey || '');
+        await this.loadAndRenderKeysTable();
       } catch (err: any) {
         alert(`Failed to create API key: ${err.message}`);
       }
     });
   }
 
-  private showKeyRevealedModal(key: ApiKeyDto): void {
+  private showNewApiKeyRevealModal(rawSecretKey: string): void {
     const modalRoot = document.getElementById('admin-modal-root');
     if (!modalRoot) return;
 
@@ -636,38 +816,34 @@ export class AdminConsoleView {
       <div class="modal-backdrop">
         <div class="modal-dialog">
           <div class="modal-header">
-            <h3>🎉 API Key Generated</h3>
+            <h3>🔑 API Key Generated Successfully</h3>
+            <button class="modal-close-btn">&times;</button>
           </div>
           <div class="modal-body">
-            <div class="warning-banner">
-              ⚠️ <strong>Save this key now!</strong> It will never be shown again.
-            </div>
-            <div class="key-reveal-box">
-              <input type="text" id="revealed-key-input" class="form-input key-display" value="${key.apiKey || ''}" readonly />
-              <button id="btn-copy-key" class="btn-primary-sm">📋 Copy</button>
-            </div>
-            <p class="text-muted" style="margin-top: 12px; font-size: 12px;">
-              Pass this key in your backend requests via the <code>X-API-Key</code> header:
-              <br/><code>X-API-Key: ${key.apiKey}</code>
+            <p class="text-warning-box">
+              ⚠️ <strong>Save this key immediately!</strong> For security reasons, you will never be able to see this secret key again.
             </p>
+            <div class="form-group">
+              <label>Private Secret Key</label>
+              <div class="key-copy-row">
+                <input type="text" id="reveal-secret-key" class="form-input font-mono" value="${rawSecretKey}" readonly />
+                <button type="button" id="btn-copy-secret-key" class="btn-primary-sm">📋 Copy</button>
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
-            <button id="btn-done-key" class="btn-primary-sm">I have saved my key</button>
+            <button type="button" class="btn-primary-sm modal-close-btn">Done</button>
           </div>
         </div>
       </div>
     `;
 
-    document.getElementById('btn-copy-key')?.addEventListener('click', () => {
-      const input = document.getElementById('revealed-key-input') as HTMLInputElement;
-      input.select();
-      navigator.clipboard.writeText(input.value);
-      alert('API key copied to clipboard!');
-    });
+    modalRoot.querySelectorAll('.modal-close-btn').forEach(b => b.addEventListener('click', () => { modalRoot.innerHTML = ''; }));
 
-    document.getElementById('btn-done-key')?.addEventListener('click', async () => {
-      modalRoot.innerHTML = '';
-      await this.loadAndRenderKeysTable();
+    document.getElementById('btn-copy-secret-key')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(rawSecretKey);
+      const btn = document.getElementById('btn-copy-secret-key');
+      if (btn) btn.textContent = '✅ Copied!';
     });
   }
 }

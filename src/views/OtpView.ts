@@ -11,8 +11,10 @@ export class OtpView {
 
   private requestForm: HTMLFormElement;
   private emailInput: HTMLInputElement;
+  private btnSendOtp: HTMLButtonElement;
   private verifyForm: HTMLFormElement;
   private digitInputs: NodeListOf<HTMLInputElement>;
+  private btnVerifyOtp: HTMLButtonElement;
   private sentEmailDisplay: HTMLElement;
   private resendLink: HTMLAnchorElement;
   private btnChangeEmail: HTMLButtonElement;
@@ -35,8 +37,10 @@ export class OtpView {
 
     this.requestForm = document.getElementById('otpRequestForm') as HTMLFormElement;
     this.emailInput = document.getElementById('otpEmailInput') as HTMLInputElement;
+    this.btnSendOtp = document.getElementById('btnSendOtp') as HTMLButtonElement;
     this.verifyForm = document.getElementById('otpVerifyForm') as HTMLFormElement;
     this.digitInputs = document.querySelectorAll<HTMLInputElement>('.otp-digit');
+    this.btnVerifyOtp = document.getElementById('btnVerifyOtp') as HTMLButtonElement;
     this.sentEmailDisplay = document.getElementById('sentEmailDisplay') as HTMLElement;
     this.resendLink = document.getElementById('resendOtpLink') as HTMLAnchorElement;
     this.btnChangeEmail = document.getElementById('btnChangeEmail') as HTMLButtonElement;
@@ -62,6 +66,16 @@ export class OtpView {
     this.step2Container.classList.add('hidden');
   }
 
+  private setButtonLoading(btn: HTMLButtonElement | null, isLoading: boolean, text: string): void {
+    if (!btn) return;
+    btn.disabled = isLoading;
+    if (isLoading) {
+      btn.innerHTML = `<span class="btn-spinner"></span><span>${text}</span>`;
+    } else {
+      btn.innerHTML = `<span>${text}</span>`;
+    }
+  }
+
   private bindEvents(): void {
     // Step 1: Request OTP
     this.requestForm.addEventListener('submit', async (e) => {
@@ -69,8 +83,14 @@ export class OtpView {
       this.alertBanner.clear();
       this.currentEmail = this.emailInput.value.trim();
 
+      if (!this.currentEmail) {
+        this.alertBanner.show('Please enter a valid email address.', 'error');
+        return;
+      }
+
+      this.setButtonLoading(this.btnSendOtp, true, 'Sending Code...');
+
       try {
-        this.alertBanner.show('Dispatching passcode...', 'info');
         await authService.requestOtp(this.projectKey, this.currentEmail);
         this.alertBanner.clear();
 
@@ -78,9 +98,12 @@ export class OtpView {
         this.step2Container.classList.remove('hidden');
         this.sentEmailDisplay.textContent = this.currentEmail;
         this.startCooldown(60);
+        this.digitInputs.forEach(d => (d.value = ''));
         this.digitInputs[0].focus();
       } catch (err: any) {
-        this.alertBanner.show(err.message || 'Failed to send OTP passcode.');
+        this.alertBanner.show(err.message || 'Failed to send OTP passcode.', 'error');
+      } finally {
+        this.setButtonLoading(this.btnSendOtp, false, 'Send OTP Passcode');
       }
     });
 
@@ -100,12 +123,22 @@ export class OtpView {
           });
           const focusIndex = Math.min(cleanDigits.length, 5);
           this.digitInputs[focusIndex].focus();
+
+          if (cleanDigits.length === 6) {
+            this.verifyForm.dispatchEvent(new Event('submit'));
+          }
           return;
         }
 
         // Single digit regular typing auto-advance
         if (val && idx < this.digitInputs.length - 1) {
           this.digitInputs[idx + 1].focus();
+        }
+
+        // Check if all 6 filled
+        const allFilled = Array.from(this.digitInputs).every(d => d.value.trim().length === 1);
+        if (allFilled) {
+          this.verifyForm.dispatchEvent(new Event('submit'));
         }
       });
 
@@ -123,8 +156,11 @@ export class OtpView {
           digits.split('').forEach((char, i) => {
             if (this.digitInputs[i]) this.digitInputs[i].value = char;
           });
-          const focusIdx = Math.min(digits.length, 5);
+          const focusIdx = Math.min(digits.length - 1, 5);
           this.digitInputs[focusIdx].focus();
+          if (digits.length === 6) {
+            this.verifyForm.dispatchEvent(new Event('submit'));
+          }
         }
       });
     });
@@ -136,17 +172,19 @@ export class OtpView {
 
       const otp = Array.from(this.digitInputs).map(d => d.value).join('');
       if (otp.length !== 6) {
-        this.alertBanner.show('Please enter all 6 digits of the verification code.');
+        this.alertBanner.show('Please enter all 6 digits of the verification code.', 'error');
         return;
       }
 
+      this.setButtonLoading(this.btnVerifyOtp, true, 'Verifying...');
+
       try {
-        this.alertBanner.show('Verifying passcode...', 'info');
         const auth = await authService.verifyOtp(this.projectKey, this.currentEmail, otp);
         sessionStorage.removeItem(this.COOLDOWN_STORAGE_KEY);
         this.onAuthSuccess(auth);
       } catch (err: any) {
-        this.alertBanner.show(err.message || 'Invalid or expired verification passcode.');
+        this.alertBanner.show(err.message || 'Invalid or expired verification passcode.', 'error');
+        this.setButtonLoading(this.btnVerifyOtp, false, 'Verify & Sign In');
       }
     });
 
@@ -165,7 +203,7 @@ export class OtpView {
         this.alertBanner.show('A fresh verification code has been dispatched.', 'success');
         this.startCooldown(60);
       } catch (err: any) {
-        this.alertBanner.show(err.message || 'Failed to resend code.');
+        this.alertBanner.show(err.message || 'Failed to resend code.', 'error');
       }
     });
   }
