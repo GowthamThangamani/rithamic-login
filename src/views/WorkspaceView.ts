@@ -15,15 +15,18 @@ export class WorkspaceView {
   private alertBanner: AlertBanner;
   private deviceDrawer: DeviceDrawer;
   private returnUrlParam: string | null;
+  private onOpenAdminConsole?: () => void;
 
   constructor(
     alertBanner: AlertBanner,
     deviceDrawer: DeviceDrawer,
-    returnUrlParam: string | null
+    returnUrlParam: string | null,
+    onOpenAdminConsole?: () => void
   ) {
     this.alertBanner = alertBanner;
     this.deviceDrawer = deviceDrawer;
     this.returnUrlParam = returnUrlParam;
+    this.onOpenAdminConsole = onOpenAdminConsole;
 
     this.hubCard = document.getElementById('workspaceHubCard') as HTMLElement;
     this.authCard = document.getElementById('authCard') as HTMLElement;
@@ -43,6 +46,28 @@ export class WorkspaceView {
     this.userNameEl.textContent = user.fullName || user.email;
     this.userEmailEl.textContent = user.email;
     this.userAvatarEl.textContent = (user.fullName || user.email).charAt(0).toUpperCase();
+
+    // Render Admin Console Entry Button if Admin/SuperAdmin
+    const existingAdminBtn = document.getElementById('btnOpenAdminConsole');
+    if (existingAdminBtn) existingAdminBtn.remove();
+
+    if ((user.role === 'admin' || user.role === 'super_admin') && this.onOpenAdminConsole) {
+      const adminEntry = document.createElement('div');
+      adminEntry.id = 'btnOpenAdminConsole';
+      adminEntry.className = 'admin-entry-card';
+      adminEntry.innerHTML = `
+        <div class="workspace-card-info">
+          <div class="workspace-icon" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">👑</div>
+          <div>
+            <h4 style="font-size: 15px; font-weight: 600; color: #a5b4fc;">Rithamic B2C Admin Console</h4>
+            <p style="font-size: 12px; color: var(--text-muted);">Manage App Registrations, API Keys & Comms Quotas</p>
+          </div>
+        </div>
+        <button class="btn-primary-sm" style="padding: 6px 14px; font-size: 12px;">Open Console →</button>
+      `;
+      adminEntry.addEventListener('click', () => this.onOpenAdminConsole?.());
+      this.hubCard.insertBefore(adminEntry, this.suitesContainer);
+    }
 
     this.loadWorkspaces();
   }

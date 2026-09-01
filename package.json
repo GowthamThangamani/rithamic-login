@@ -1,7 +1,7 @@
 {
-  "name": "rithamic-login",
-  "version": "2.0.0",
-  "description": "Centralized Identity & Authentication Hub for the Rithamic Ecosystem (TypeScript)",
+  "name": "rithamic-b2c",
+  "version": "2.1.0",
+  "description": "Rithamic B2C — Central Identity, Hosted User Flows & Developer Console (TypeScript)",
   "type": "module",
   "scripts": {
     "dev": "vite",

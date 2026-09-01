@@ -49,3 +49,62 @@ export interface ApiResponse<T> {
   correlationId?: string;
   errors?: Record<string, string[]>;
 }
+
+export interface ClientProjectDto {
+  id: number;
+  projectKey: string;
+  projectName: string;
+  companyName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  webhookUrl?: string | null;
+  productSuite?: string | null;
+  appIconUrl?: string | null;
+  appLaunchUrl?: string | null;
+  allowedOrigins: string[];
+  rateLimitMax: number;
+  rateLimitWindowMs: number;
+  isActive: boolean;
+  monthlyQuotaEmails: number;
+  monthlyQuotaSms: number;
+  createdAt: string;
+}
+
+export interface ApiKeyDto {
+  id: number;
+  projectKey: string;
+  keyName: string;
+  keyPrefix: string;
+  apiKey?: string; // only present upon creation
+  scopes: string[];
+  rateLimitPerMinute: number;
+  isActive: boolean;
+  lastUsedAt?: string | null;
+  createdAt: string;
+}
+
+export interface CommunicationsLogDto {
+  id: number;
+  projectKey: string;
+  recipient: string;
+  channel: string;
+  messageType: string;
+  provider: string;
+  status: string;
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
+export interface ProjectAccountingDto {
+  projectKey: string;
+  projectName: string;
+  companyName?: string | null;
+  year: number;
+  month: number;
+  totalEmailsSent: number;
+  totalSmsSent: number;
+  monthlyQuotaEmails: number;
+  monthlyQuotaSms: number;
+  totalSuccess: number;
+  totalFailed: number;
+}

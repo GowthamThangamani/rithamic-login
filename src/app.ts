@@ -6,6 +6,8 @@ import { PasswordView } from './views/PasswordView.ts';
 import { OtpView } from './views/OtpView.ts';
 import { MagicLinkView } from './views/MagicLinkView.ts';
 import { WorkspaceView } from './views/WorkspaceView.ts';
+import { AdminConsoleView } from './views/AdminConsoleView.ts';
+import { projectService } from './services/projectService.ts';
 import * as authService from './services/authService.ts';
 
 declare global {
@@ -29,6 +31,7 @@ class RithamicAuthApp {
   private otpView!: OtpView;
   private magicLinkView!: MagicLinkView;
   private workspaceView!: WorkspaceView;
+  private adminConsoleView!: AdminConsoleView;
 
   private targetProjectKey: string;
   private returnUrl: string | null;
@@ -37,39 +40,57 @@ class RithamicAuthApp {
   private magicToken: string | null;
 
   // DOM Elements
+  private appContainerEl: HTMLElement;
+  private authCardEl: HTMLElement;
+  private workspaceHubCardEl: HTMLElement;
+  private adminConsoleContainerEl: HTMLElement;
+  private brandHeaderEl: HTMLElement;
+  private brandSuiteBadgeEl: HTMLElement;
+  private brandTitleEl: HTMLElement;
+  private brandSubtitleEl: HTMLElement;
   private tabPasswordBtn: HTMLButtonElement;
   private tabOtpBtn: HTMLButtonElement;
   private tabMagicBtn: HTMLButtonElement;
-  private brandTitleEl: HTMLElement;
-  private brandSubtitleEl: HTMLElement;
   private btnGoogleLogin: HTMLButtonElement;
+
+  private authenticatedUser: AuthUser | null = null;
 
   constructor() {
     this.alertBanner = new AlertBanner('alertBox');
     this.deviceDrawer = new DeviceDrawer();
 
     const params = new URLSearchParams(window.location.search);
-    const rawProject = params.get('project') || CONFIG.DEFAULT_PROJECT_KEY;
+    const rawProject = params.get('project') || params.get('client_id') || CONFIG.DEFAULT_PROJECT_KEY;
     this.targetProjectKey = this.sanitizeProjectKey(rawProject);
 
-    this.returnUrl = params.get('returnUrl') || params.get('relayState');
+    this.returnUrl = params.get('returnUrl') || params.get('redirect_uri') || params.get('relayState');
     this.resetToken = params.get('token') || params.get('resetToken');
     this.resetEmail = params.get('email');
     this.magicToken = params.get('magicToken');
 
+    this.appContainerEl = document.getElementById('appContainer') as HTMLElement;
+    this.authCardEl = document.getElementById('authCard') as HTMLElement;
+    this.workspaceHubCardEl = document.getElementById('workspaceHubCard') as HTMLElement;
+    this.adminConsoleContainerEl = document.getElementById('adminConsoleContainer') as HTMLElement;
+    this.brandHeaderEl = document.querySelector('.brand-header') as HTMLElement;
+    this.brandSuiteBadgeEl = document.getElementById('brandSuiteBadge') as HTMLElement;
+    this.brandTitleEl = document.getElementById('brandTitle') as HTMLElement;
+    this.brandSubtitleEl = document.getElementById('brandSubtitle') as HTMLElement;
     this.tabPasswordBtn = document.getElementById('tabPassword') as HTMLButtonElement;
     this.tabOtpBtn = document.getElementById('tabOtp') as HTMLButtonElement;
     this.tabMagicBtn = document.getElementById('tabMagic') as HTMLButtonElement;
-    this.brandTitleEl = document.getElementById('brandTitle') as HTMLElement;
-    this.brandSubtitleEl = document.getElementById('brandSubtitle') as HTMLElement;
     this.btnGoogleLogin = document.getElementById('btnGoogleLogin') as HTMLButtonElement;
   }
 
   public async init(): Promise<void> {
-    this.setupBranding();
+    await this.setupDynamicBranding();
     this.initViews();
     this.setupTabs();
     this.setupGoogleOAuthFallback();
+
+    // Check if directly navigating to admin mode
+    const params = new URLSearchParams(window.location.search);
+    const wantsAdmin = params.get('view') === 'admin' || window.location.pathname.startsWith('/admin');
 
     // 1. If URL has reset password token -> open reset password flow
     if (this.resetToken && this.resetEmail) {
@@ -84,20 +105,44 @@ class RithamicAuthApp {
     }
 
     // 3. Silent Token Bootstrap Cycle on page reload
-    await this.performSilentBootstrap();
+    await this.performSilentBootstrap(wantsAdmin);
   }
 
   private sanitizeProjectKey(raw: string): string {
     const clean = raw.trim().toLowerCase();
-    // Validate project key naming convention
     if (/^[a-z0-9_]{3,40}$/.test(clean)) {
       return clean;
     }
     return CONFIG.DEFAULT_PROJECT_KEY;
   }
 
-  private setupBranding(): void {
-    if (this.targetProjectKey !== CONFIG.DEFAULT_PROJECT_KEY) {
+  /**
+   * Azure AD B2C Style Dynamic Tenant Branding
+   * Dynamically queries Core Service for tenant title, logo, and welcome instructions
+   */
+  private async setupDynamicBranding(): Promise<void> {
+    if (this.targetProjectKey === CONFIG.DEFAULT_PROJECT_KEY) {
+      this.brandTitleEl.textContent = 'Sign in to Rithamic B2C';
+      this.brandSubtitleEl.textContent = 'Centralized Zero-Trust Identity Gateway';
+      return;
+    }
+
+    try {
+      const project = await projectService.getProjectByKey(this.targetProjectKey);
+      this.brandTitleEl.textContent = `Sign in to ${project.projectName}`;
+      document.title = `${project.projectName} — Rithamic B2C Identity`;
+
+      if (project.companyName) {
+        this.brandSubtitleEl.textContent = `${project.companyName} • Secure Single Sign-On`;
+      } else {
+        this.brandSubtitleEl.textContent = `Zero-Trust SSO Authentication for ${project.projectName}`;
+      }
+
+      if (project.productSuite) {
+        this.brandSuiteBadgeEl.textContent = project.productSuite.replace(/_/g, ' ').toUpperCase();
+      }
+    } catch {
+      // Fallback if backend temporarily unavailable
       const formatted = this.targetProjectKey
         .replace(/^rithamic_/, '')
         .replace(/_/g, ' ')
@@ -113,7 +158,38 @@ class RithamicAuthApp {
     this.passwordView = new PasswordView(this.targetProjectKey, this.alertBanner, handleAuthSuccess);
     this.otpView = new OtpView(this.targetProjectKey, this.alertBanner, handleAuthSuccess);
     this.magicLinkView = new MagicLinkView(this.targetProjectKey, this.alertBanner, handleAuthSuccess);
-    this.workspaceView = new WorkspaceView(this.alertBanner, this.deviceDrawer, this.returnUrl);
+    this.workspaceView = new WorkspaceView(
+      this.alertBanner,
+      this.deviceDrawer,
+      this.returnUrl,
+      () => this.openAdminConsole()
+    );
+    this.adminConsoleView = new AdminConsoleView(
+      this.adminConsoleContainerEl,
+      () => this.closeAdminConsole()
+    );
+  }
+
+  private openAdminConsole(): void {
+    if (!this.authenticatedUser) return;
+    this.authCardEl.classList.add('hidden');
+    this.workspaceHubCardEl.classList.add('hidden');
+    this.brandHeaderEl.classList.add('hidden');
+    this.appContainerEl.classList.add('admin-mode-container');
+    this.adminConsoleContainerEl.classList.remove('hidden');
+
+    this.adminConsoleView.render(this.authenticatedUser);
+  }
+
+  private closeAdminConsole(): void {
+    this.adminConsoleContainerEl.classList.add('hidden');
+    this.appContainerEl.classList.remove('admin-mode-container');
+    this.brandHeaderEl.classList.remove('hidden');
+    if (this.authenticatedUser) {
+      this.workspaceView.render(this.authenticatedUser);
+    } else {
+      this.authCardEl.classList.remove('hidden');
+    }
   }
 
   private setupTabs(): void {
@@ -141,7 +217,7 @@ class RithamicAuthApp {
     }
   }
 
-  private async performSilentBootstrap(): Promise<void> {
+  private async performSilentBootstrap(wantsAdmin: boolean = false): Promise<void> {
     const refreshToken = localStorage.getItem(CONFIG.REFRESH_TOKEN_KEY);
     const storedUserJson = localStorage.getItem(CONFIG.USER_STORAGE_KEY);
 
@@ -151,15 +227,18 @@ class RithamicAuthApp {
     }
 
     try {
-      // Attempt silent refresh to validate and rotate session token
       const auth = await authService.refreshSession(refreshToken);
-      this.onAuthenticated(auth);
+      this.onAuthenticated(auth, wantsAdmin);
     } catch {
-      // If silent refresh fails, check if we have offline user state or reset
       if (storedUserJson) {
         try {
           const user: AuthUser = JSON.parse(storedUserJson);
-          this.workspaceView.render(user);
+          this.authenticatedUser = user;
+          if (wantsAdmin && (user.role === 'admin' || user.role === 'super_admin')) {
+            this.openAdminConsole();
+          } else {
+            this.workspaceView.render(user);
+          }
           return;
         } catch {}
       }
@@ -168,7 +247,8 @@ class RithamicAuthApp {
     }
   }
 
-  private async onAuthenticated(auth: AuthResponseDto): Promise<void> {
+  private async onAuthenticated(auth: AuthResponseDto, wantsAdmin: boolean = false): Promise<void> {
+    this.authenticatedUser = auth.user;
     localStorage.setItem(CONFIG.SESSION_STORAGE_KEY, auth.token);
     localStorage.setItem(CONFIG.REFRESH_TOKEN_KEY, auth.refreshToken);
     localStorage.setItem(CONFIG.SESSION_ID_KEY, auth.sessionId);
@@ -188,7 +268,11 @@ class RithamicAuthApp {
       }
     }
 
-    this.workspaceView.render(auth.user);
+    if (wantsAdmin && (auth.user.role === 'admin' || auth.user.role === 'super_admin')) {
+      this.openAdminConsole();
+    } else {
+      this.workspaceView.render(auth.user);
+    }
   }
 
   private setupGoogleOAuthFallback(): void {
@@ -202,10 +286,9 @@ class RithamicAuthApp {
       }
     });
 
-    // Check if Google SDK loaded without crashing UI
     setTimeout(() => {
       if (!window.google && !this.btnGoogleLogin.classList.contains('hidden')) {
-        // External SDK blocked by AdBlocker / Network; keep fallback button active
+        // Fallback for adblockers
       }
     }, 2000);
   }
