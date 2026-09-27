@@ -10,6 +10,7 @@ import { AdminConsoleView } from './views/AdminConsoleView.ts';
 import { projectService } from './services/projectService.ts';
 import * as authService from './services/authService.ts';
 import { router, RouteState } from './services/routerService.ts';
+import { inactivityService } from './services/inactivityService.ts';
 
 declare global {
   interface Window {
@@ -70,6 +71,16 @@ class RithamicAuthApp {
   public async init(): Promise<void> {
     const initialState = router.getRouteState();
     this.targetProjectKey = initialState.project;
+
+    // Check for prior inactivity logout notice
+    const inactivityNotice = sessionStorage.getItem('inactivity_logout_notice');
+    if (inactivityNotice) {
+      sessionStorage.removeItem('inactivity_logout_notice');
+      this.alertBanner.show(inactivityNotice, 'error');
+    }
+
+    // Initialize 1-minute inactivity guard
+    inactivityService.init();
 
     await this.setupDynamicBranding();
     this.initViews();
@@ -247,6 +258,7 @@ class RithamicAuthApp {
     localStorage.setItem(CONFIG.REFRESH_TOKEN_KEY, auth.refreshToken);
     localStorage.setItem(CONFIG.SESSION_ID_KEY, auth.sessionId);
     localStorage.setItem(CONFIG.USER_STORAGE_KEY, JSON.stringify(auth.user));
+    inactivityService.recordActivity();
 
     const currentState = router.getRouteState();
 

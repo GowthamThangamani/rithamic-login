@@ -1531,3 +1531,63 @@ body {
   border-color: rgba(56, 189, 248, 0.35);
   background: rgba(56, 189, 248, 0.05);
 }
+
+/* Inactivity Warning Modal Styles */
+.inactivity-modal-card {
+  max-width: 440px;
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15);
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.inactivity-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 18px;
+}
+
+.inactivity-timer-box {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 8px 0;
+}
+
+.inactivity-countdown-number {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  color: #fbbf24;
+  line-height: 1;
+}
+
+.inactivity-countdown-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fde68a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@keyframes modalScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
